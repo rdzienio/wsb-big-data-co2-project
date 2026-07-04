@@ -4,7 +4,7 @@ Interaktywna aplikacja analityczna do eksploracji **światowych emisji dwutlenku
 zbudowana w **Streamlit + Plotly**. Projekt zaliczeniowy z przedmiotu
 *Zarządzanie Big Data* (WSB Merito).
 
-**🔗 Aplikacja na żywo:** _(uzupełnij po deployu na Streamlit Cloud)_
+**🔗 Aplikacja na żywo:** https://wsb-big-data-co2-project-rdzienio.streamlit.app/
 
 ---
 
