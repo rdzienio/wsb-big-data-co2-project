@@ -280,14 +280,25 @@ with tab_rankingi:
 
 # ---- Zakładka 4: ZALEŻNOŚCI (scatter + heatmapa) -------------------------- #
 with tab_zaleznosci:
-    st.subheader(f"Zamożność a emisje per capita ({rok})")
+    # PKB jest publikowane z opóźnieniem — dla najnowszych lat go brak.
+    # Zamiast pokazywać pusty wykres, cofamy się do ostatniego roku z danymi PKB.
+    dostepne_pkb = kraje[(kraje["year"] <= rok) & kraje["gdp_per_capita"].notna()]
+    rok_pkb = int(dostepne_pkb["year"].max()) if not dostepne_pkb.empty else None
+
+    naglowek = f"Zamożność a emisje per capita ({rok_pkb})" if rok_pkb else \
+               "Zamożność a emisje per capita"
+    st.subheader(naglowek)
+
     # Scatter: PKB per capita vs CO2 per capita, wielkość = populacja.
-    sc = kraje_rok.dropna(subset=["gdp_per_capita", "co2_per_capita", "population"])
+    sc = kraje[kraje["year"] == rok_pkb] if rok_pkb else kraje.iloc[0:0]
+    sc = sc.dropna(subset=["gdp_per_capita", "co2_per_capita", "population"])
     sc = sc[sc["population"] > 1_000_000]
     if sc.empty:
-        st.info(f"Brak danych o PKB dla roku {rok}. Wybierz wcześniejszy rok "
-                "(PKB dostępne zwykle do ~2022).")
+        st.info(f"Brak danych o PKB dla roku {rok} ani wcześniejszych.")
     else:
+        if rok_pkb != rok:
+            st.caption(f"ℹ️ PKB dla {rok} nie jest jeszcze dostępne — "
+                       f"pokazuję najnowszy rok z danymi: **{rok_pkb}**.")
         fig_sc = px.scatter(
             sc, x="gdp_per_capita", y="co2_per_capita",
             size="population", color="co2", hover_name="country",
