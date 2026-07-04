@@ -10,6 +10,7 @@ Uruchomienie lokalne:  streamlit run app.py
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -158,6 +159,51 @@ with tab_mapa:
         f"Mapa pokazuje **{metryka_label.lower()}** w roku {rok}. "
         "Ciemniejszy kolor = wyższa wartość. Kraje bez danych pozostają szare."
     )
+
+    # --- Animowana mapa (oś czasu z przyciskiem Play) ---------------------- #
+    st.divider()
+    st.subheader(f"Animacja: {metryka_label} na przestrzeni lat")
+
+    krok = st.select_slider(
+        "Krok czasowy (klatka co ile lat)", options=[1, 5, 10], value=5,
+        help="Mniejszy krok = płynniejsza animacja, ale więcej klatek do wygenerowania.",
+    )
+    lata_od, lata_do = zakres_lat
+
+    dane_anim = (
+        kraje[kraje["year"].between(lata_od, lata_do)
+              & (kraje["year"] % krok == 0)]
+        .dropna(subset=[metryka])
+        .sort_values("year")            # klatki muszą iść chronologicznie
+    )
+    dane_anim = dane_anim[dane_anim[metryka] > 0].copy()
+
+    if dane_anim.empty:
+        st.info("Brak danych do animacji dla wybranego zakresu lat.")
+    else:
+        # Emisje są mocno skośne (Chiny/USA vs reszta) — logarytm koloru
+        # sprawia, że różnice między mniejszymi krajami są widoczne.
+        dane_anim["kolor"] = np.log10(dane_anim[metryka])
+
+        fig_anim = px.choropleth(
+            dane_anim,
+            locations="iso_code",
+            color="kolor",
+            hover_name="country",
+            hover_data={metryka: ":,.1f", "kolor": False, "iso_code": False},
+            animation_frame="year",          # oś czasu + przyciski Play/Pause
+            color_continuous_scale="YlOrRd",
+            # Stała skala kolorów dla wszystkich klatek — bez tego animacja „miga".
+            range_color=[dane_anim["kolor"].min(), dane_anim["kolor"].max()],
+        )
+        fig_anim.update_layout(height=560, margin=dict(l=0, r=0, t=10, b=0),
+                               coloraxis_colorbar_title="skala log")
+        st.plotly_chart(fig_anim, use_container_width=True)
+        st.caption(
+            "Kliknij ▶ aby odtworzyć zmiany w czasie. Kolor w skali logarytmicznej — "
+            "pozwala porównać kraje mimo ogromnych różnic w wielkości emisji. "
+            "Dobrze widać przesunięcie emisji z Zachodu do Azji po 2000 r."
+        )
 
 
 # ---- Zakładka 2: TRENDY (wykres liniowy + skumulowany obszarowy) ----------- #
