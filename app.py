@@ -135,8 +135,8 @@ st.divider()
 # Zakładki z wizualizacjami
 # --------------------------------------------------------------------------- #
 tab_mapa, tab_trendy, tab_rankingi, tab_zaleznosci, tab_polska = st.tabs(
-    ["🗺️ Mapa świata", "📈 Trendy w czasie", "🏆 Rankingi", "🔬 Zależności",
-     "🇵🇱 Polska"]
+    ["Mapa świata", "Trendy w czasie", "Rankingi", "Zależności",
+     "Polska"]
 )
 
 
