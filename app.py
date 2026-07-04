@@ -134,8 +134,9 @@ st.divider()
 # --------------------------------------------------------------------------- #
 # Zakładki z wizualizacjami
 # --------------------------------------------------------------------------- #
-tab_mapa, tab_trendy, tab_rankingi, tab_zaleznosci = st.tabs(
-    ["🗺️ Mapa świata", "📈 Trendy w czasie", "🏆 Rankingi", "🔬 Zależności"]
+tab_mapa, tab_trendy, tab_rankingi, tab_zaleznosci, tab_polska = st.tabs(
+    ["🗺️ Mapa świata", "📈 Trendy w czasie", "🏆 Rankingi", "🔬 Zależności",
+     "🇵🇱 Polska"]
 )
 
 
@@ -154,7 +155,7 @@ with tab_mapa:
     fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=520)
     st.plotly_chart(fig, use_container_width=True)
     st.caption(
-        f"💡 Mapa pokazuje **{metryka_label.lower()}** w roku {rok}. "
+        f"Mapa pokazuje **{metryka_label.lower()}** w roku {rok}. "
         "Ciemniejszy kolor = wyższa wartość. Kraje bez danych pozostają szare."
     )
 
@@ -179,7 +180,7 @@ with tab_trendy:
         )
         fig_line.update_layout(height=430, hovermode="x unified")
         st.plotly_chart(fig_line, use_container_width=True)
-        st.caption("💡 Wykres liniowy ujawnia różne ścieżki rozwoju — np. gwałtowny "
+        st.caption("Wykres liniowy ujawnia różne ścieżki rozwoju — np. gwałtowny "
                    "wzrost Chin po 2000 r. vs. stabilizacja/spadki w krajach Zachodu.")
 
         st.subheader("Globalny miks paliw w czasie")
@@ -197,7 +198,7 @@ with tab_trendy:
         )
         fig_area.update_layout(height=400)
         st.plotly_chart(fig_area, use_container_width=True)
-        st.caption("💡 Wykres warstwowy pokazuje strukturę źródeł emisji na świecie. "
+        st.caption("Wykres warstwowy pokazuje strukturę źródeł emisji na świecie. "
                    "Węgiel i ropa historycznie dominują; udział gazu rośnie.")
 
 
@@ -227,7 +228,7 @@ with tab_rankingi:
     )
     fig_tree.update_layout(height=500, margin=dict(l=0, r=0, t=10, b=0))
     st.plotly_chart(fig_tree, use_container_width=True)
-    st.caption("💡 Treemap: pole prostokąta = wielkość emisji. Klikaj, aby wejść "
+    st.caption("Treemap: pole prostokąta = wielkość emisji. Klikaj, aby wejść "
                "w głąb i zobaczyć rozbicie na paliwa dla danego kraju.")
 
 
@@ -266,10 +267,98 @@ with tab_zaleznosci:
         )
         fig_hm.update_layout(height=400)
         st.plotly_chart(fig_hm, use_container_width=True)
-        st.caption("💡 Heatmapa: średnie emisje per capita w dekadach. Dobrze widać, "
+        st.caption("Heatmapa: średnie emisje per capita w dekadach. Dobrze widać, "
                    "które kraje redukują ślad, a które go zwiększają.")
     else:
         st.info("Wybierz kraje w panelu bocznym, aby zobaczyć heatmapę.")
+
+
+# ---- Zakładka 5: POLSKA (analiza dedykowana) ------------------------------ #
+POLSKA = "Poland"
+SASIEDZI = ["Poland", "Germany", "Czechia", "Slovakia", "Ukraine", "France", "Sweden"]
+
+with tab_polska:
+    st.subheader("Polska — analiza szczegółowa")
+    pl = kraje[kraje["country"].astype(str) == POLSKA]
+    pl_rok = pl[pl["year"] == rok]
+
+    if pl_rok.empty:
+        st.info(f"Brak danych dla Polski w roku {rok}. Wybierz inny rok w panelu bocznym.")
+    else:
+        w = pl_rok.iloc[0]
+
+        # --- KPI dla Polski w wybranym roku ---
+        p1, p2, p3, p4 = st.columns(4)
+
+        pl_prev = pl[pl["year"] == rok - 1]
+        delta_pl = None
+        if not pl_prev.empty and pd.notna(pl_prev["co2"].iloc[0]):
+            poprz = pl_prev["co2"].iloc[0]
+            delta_pl = f"{(w['co2'] - poprz) / poprz * 100:+.1f}% r/r"
+        p1.metric(f"Emisje CO₂ ({rok})", f"{w['co2']:,.0f} mln t", delta_pl,
+                  delta_color="inverse")  # spadek emisji to dobra wiadomość
+        p2.metric("CO₂ na mieszkańca", f"{w['co2_per_capita']:.1f} t/os.")
+        p3.metric("Udział węgla", f"{w['udzial_wegla_prct']:.0f}%")
+
+        # Miejsce Polski w światowym rankingu emisji CO₂ w danym roku.
+        ranking = (kraje_rok.dropna(subset=["co2"])
+                   .sort_values("co2", ascending=False)
+                   .reset_index(drop=True))
+        poz = ranking.index[ranking["country"].astype(str) == POLSKA]
+        p4.metric("Miejsce w świecie", f"{int(poz[0]) + 1}." if len(poz) else "—",
+                  help="Pozycja w rankingu emisji CO₂ ogółem")
+
+        lata_od, lata_do = zakres_lat
+        pl_zakres = pl[pl["year"].between(lata_od, lata_do)]
+
+        # --- Miks paliw Polski w czasie (stacked area) ---
+        st.subheader("Z czego pochodzą emisje Polski? (miks paliw)")
+        dp = pl_zakres.melt(id_vars="year", value_vars=PALIWA,
+                            var_name="zrodlo", value_name="emisje")
+        dp["zrodlo"] = dp["zrodlo"].map(PALIWA_PL)
+        fig_pl_area = px.area(
+            dp, x="year", y="emisje", color="zrodlo",
+            labels={"year": "Rok", "emisje": "Emisje CO₂ (mln ton)", "zrodlo": "Źródło"},
+        )
+        fig_pl_area.update_layout(height=380)
+        st.plotly_chart(fig_pl_area, use_container_width=True)
+        st.caption("Emisje Polski historycznie zdominowane przez **węgiel** — "
+                   "spuścizna energetyki opartej na węglu kamiennym i brunatnym.")
+
+        col_a, col_b = st.columns(2)
+
+        # --- Udział węgla w czasie (linia) — historia dekarbonizacji ---
+        with col_a:
+            st.subheader("Udział węgla w emisjach")
+            fig_coal = px.line(
+                pl_zakres, x="year", y="udzial_wegla_prct",
+                labels={"year": "Rok", "udzial_wegla_prct": "Udział węgla (%)"},
+            )
+            fig_coal.update_traces(line_color="#5c4033", line_width=3)
+            fig_coal.update_layout(height=360, yaxis_range=[0, 100])
+            st.plotly_chart(fig_coal, use_container_width=True)
+            st.caption("💡 Wyraźny trend spadkowy — postępująca dekarbonizacja "
+                       "polskiej gospodarki.")
+
+        # --- Polska na tle sąsiadów (słupkowy) ---
+        with col_b:
+            st.subheader(f"Na tle sąsiadów ({rok})")
+            por = (kraje_rok[kraje_rok["country"].astype(str).isin(SASIEDZI)]
+                   .dropna(subset=["co2_per_capita"])
+                   .sort_values("co2_per_capita"))
+            por["grupa"] = por["country"].astype(str).eq(POLSKA).map(
+                {True: "Polska", False: "Sąsiedzi"})
+            fig_por = px.bar(
+                por, x="co2_per_capita", y="country", orientation="h",
+                color="grupa",
+                color_discrete_map={"Polska": "#d62728", "Sąsiedzi": "#9aa0a6"},
+                labels={"co2_per_capita": "CO₂ per capita (t/os.)",
+                        "country": "", "grupa": ""},
+            )
+            fig_por.update_layout(height=360, legend_title_text="")
+            st.plotly_chart(fig_por, use_container_width=True)
+            st.caption("Polska wypada wysoko per capita — efekt węgla. "
+                       "Francja (atom) i Szwecja (hydro/atom) emitują dużo mniej.")
 
 
 # --------------------------------------------------------------------------- #
