@@ -309,7 +309,7 @@ with tab_zaleznosci:
         )
         fig_sc.update_layout(height=470)
         st.plotly_chart(fig_sc, use_container_width=True)
-        st.caption("💡 Wyraźna korelacja: bogatsze kraje emitują więcej CO₂ na osobę. "
+        st.caption("Wyraźna korelacja: bogatsze kraje emitują więcej CO₂ na osobę. "
                    "Ale są wyjątki — kraje o podobnym PKB potrafią mieć bardzo różny ślad.")
 
     st.subheader("Heatmapa emisji per capita (kraj × dekada)")
